@@ -1,0 +1,63 @@
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 220px;
+  background: #2f5d50;
+  color: white;
+  padding-top: 60px;
+  transition: transform 0.3s ease;
+  z-index: 1000;
+}
+
+/* Show */
+.sidebar.open {
+  transform: translateX(0);
+}
+
+/* Hide (slide left but keep toggle visible) */
+.sidebar.closed {
+  transform: translateX(-100%);
+}
+
+/* Nav links */
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+}
+
+.sidebar nav a {
+  display: flex;
+  align-items: center;
+  padding: 12px 15px;
+  text-decoration: none;
+  color: white;
+  transition: background 0.2s;
+}
+
+.sidebar nav a:hover,
+.sidebar nav a.active {
+  background: #3e7c6e;
+  border-radius: 5px;
+}
+
+.sidebar nav .icon {
+  margin-right: 10px;
+}
+
+/* 🔹 Toggle button always visible */
+.toggle-btn {
+  position: fixed;
+  top: 15px;
+  left: 15px;
+  background: #2f5d50;
+  border: none;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 1101; /* above sidebar */
+  padding: 8px 12px;
+  border-radius: 5px;
+}
