@@ -8,10 +8,14 @@ import {
   FaMoneyBillWave,
   FaBars,
   FaTimes,
+  FaSign,
+  FaSignOutAlt,
+  FaUser,
+  FaChartLine
 } from "react-icons/fa";
 import "./Sidebar.css";
 
-function Sidebar({ isOpen, setIsOpen }) {
+function Sidebar({ isOpen, setIsOpen, onLogout, user }) {
   const location = useLocation();
 
   const menuItems = [
@@ -19,6 +23,7 @@ function Sidebar({ isOpen, setIsOpen }) {
     { path: "/farmers", name: "Farmers", icon: <FaUserFriends /> },
     { path: "/milk-logs", name: "Milk Logs", icon: <FaTint /> },
     { path: "/payments", name: "Payments", icon: <FaMoneyBillWave /> },
+    { path: "/analytics", name: "Analytics", icon: <FaChartLine /> },
   ];
 
   return (
@@ -30,19 +35,47 @@ function Sidebar({ isOpen, setIsOpen }) {
 
       {/* 🔹 Sidebar slides in/out */}
       <div className={`sidebar ${isOpen ? "open" : "closed"}`}>
-        <nav>
+        {/* User Info Section */}
+        {user && isOpen && (
+          <div className="user-info">
+            <div className="user-avatar">
+              <FaUser />
+            </div>
+            <div className="user-details">
+              <div className="user-email">{user.email}</div>
+              <div className="user-role">Admin</div>
+            </div>
+          </div>
+        )}
+
+        {/* Navigation Menu */}
+        <nav className="sidebar-nav">
           {menuItems.map((item) => (
             <Link
               key={item.path}
               to={item.path}
-              className={location.pathname === item.path ? "active" : ""}
+              className={`nav-item ${location.pathname === item.path ? "active" : ""}`}
+              onClick={() => window.innerWidth <= 768 && setIsOpen(false)}
             >
               <span className="icon">{item.icon}</span>
               {isOpen && <span className="label">{item.name}</span>}
             </Link>
           ))}
         </nav>
+
+        {/* Logout Button */}
+        {isOpen && (
+          <div className="sidebar-footer">
+            <button className="logout-btn" onClick={onLogout}>
+              <span className="icon"><FaSignOutAlt /></span>
+              <span className="label">Logout</span>
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Overlay for mobile when sidebar is open */}
+      {isOpen && <div className="sidebar-overlay" onClick={() => setIsOpen(false)} />}
     </>
   );
 }

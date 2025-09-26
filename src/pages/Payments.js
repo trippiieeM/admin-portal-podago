@@ -138,56 +138,54 @@ function Payments() {
       </div>
 
       {/* 🔹 Table */}
-      <table className="payments-table">
-        <thead>
-          <tr>
-            <th>Farmer</th>
-            <th>Quantity (L)</th>
-            <th>Amount (KES)</th>
-            <th>Status</th>
-            <th>Date</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {logs.map((log) => (
-            <tr key={log.id}>
-              <td>{log.farmerName || log.farmerId}</td>
-              <td>{log.quantity}</td>
-              <td>{(log.quantity ?? 0) * pricePerLiter}</td>
-              <td
-                className={
-                  log.status === "paid" ? "status-paid" : "status-pending"
-                }
-              >
-                {log.status}
-              </td>
-              <td>
-                {log.date?.toDate
-                  ? format(log.date.toDate(), "MMM dd, yyyy HH:mm")
-                  : "N/A"}
-              </td>
-              <td>
-                {log.status === "pending" ? (
-                  <button
-                    onClick={() => updateStatus(log.id, "paid")}
-                    className="mark-paid"
-                  >
-                    Mark as Paid
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => updateStatus(log.id, "pending")}
-                    className="mark-pending"
-                  >
-                    Mark as Pending
-                  </button>
-                )}
-              </td>
+      <div className="payments-table-container">
+        <table className="payments-table">
+          <thead>
+            <tr>
+              <th>Farmer</th>
+              <th>Quantity (L)</th>
+              <th>Amount (KES)</th>
+              <th>Status</th>
+              <th>Date</th>
+              <th>Action</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {logs.map((log) => (
+              <tr key={log.id}>
+                <td className="farmer-name">{log.farmerName || log.farmerId}</td>
+                <td>{log.quantity}</td>
+                <td className="amount-highlight">{(log.quantity ?? 0) * pricePerLiter}</td>
+                <td className={log.status === "paid" ? "status-paid" : "status-pending"}>
+                  {log.status}
+                </td>
+                <td>
+                  {log.date?.toDate
+                    ? format(log.date.toDate(), "MMM dd, yyyy HH:mm")
+                    : "N/A"}
+                </td>
+                <td>
+                  {log.status === "pending" ? (
+                    <button
+                      onClick={() => updateStatus(log.id, "paid")}
+                      className="mark-paid"
+                    >
+                      Mark as Paid
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => updateStatus(log.id, "pending")}
+                      className="mark-pending"
+                    >
+                      Mark as Pending
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

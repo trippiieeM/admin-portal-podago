@@ -1,63 +1,196 @@
+/* src/components/Sidebar.css */
+
+/* Toggle Button */
+.toggle-btn {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 1001;
+  background: #2c3e50;
+  color: white;
+  border: none;
+  padding: 0.75rem;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  transition: all 0.3s ease;
+}
+
+.toggle-btn:hover {
+  background: #34495e;
+  transform: scale(1.05);
+}
+
+/* Sidebar */
 .sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  background: #2c3e50;
+  transition: all 0.3s ease;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar.open {
+  width: 250px;
+}
+
+.sidebar.closed {
+  width: 0;
+  overflow: hidden;
+}
+
+/* User Info */
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: #34495e;
+  border-bottom: 1px solid #4a6572;
+}
+
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #3498db;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+.user-details {
+  color: white;
+}
+
+.user-email {
+  font-weight: 500;
+  font-size: 0.9rem;
+  margin-bottom: 0.2rem;
+}
+
+.user-role {
+  font-size: 0.8rem;
+  color: #bdc3c7;
+  opacity: 0.8;
+}
+
+/* Navigation */
+.sidebar-nav {
+  flex: 1;
+  padding: 1rem 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  color: #bdc3c7;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  border-left: 4px solid transparent;
+}
+
+.nav-item:hover {
+  background: #34495e;
+  color: white;
+  border-left-color: #3498db;
+}
+
+.nav-item.active {
+  background: #34495e;
+  color: white;
+  border-left-color: #e74c3c;
+}
+
+.nav-item .icon {
+  font-size: 1.2rem;
+  min-width: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-item .label {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Sidebar Footer */
+.sidebar-footer {
+  padding: 1rem;
+  border-top: 1px solid #34495e;
+}
+
+.logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: 0.75rem;
+  background: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 1rem;
+}
+
+.logout-btn:hover {
+  background: #c0392b;
+  transform: translateY(-1px);
+}
+
+/* Overlay for mobile */
+.sidebar-overlay {
   position: fixed;
   top: 0;
   left: 0;
+  width: 100%;
   height: 100%;
-  width: 220px;
-  background: #2f5d50;
-  color: white;
-  padding-top: 60px;
-  transition: transform 0.3s ease;
-  z-index: 1000;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  display: none;
 }
 
-/* Show */
-.sidebar.open {
-  transform: translateX(0);
+/* Responsive Design */
+@media (max-width: 768px) {
+  .sidebar.open {
+    width: 280px;
+  }
+  
+  .sidebar-overlay {
+    display: block;
+  }
+  
+  .toggle-btn {
+    top: 0.5rem;
+    left: 0.5rem;
+    padding: 0.5rem;
+  }
 }
 
-/* Hide (slide left but keep toggle visible) */
-.sidebar.closed {
-  transform: translateX(-100%);
+/* Smooth transitions for sidebar content */
+.sidebar.closed .user-info,
+.sidebar.closed .nav-item .label,
+.sidebar.closed .logout-btn .label {
+  opacity: 0;
+  transition: opacity 0.2s ease;
 }
 
-/* Nav links */
-.sidebar nav {
-  display: flex;
-  flex-direction: column;
-  padding: 10px;
-}
-
-.sidebar nav a {
-  display: flex;
-  align-items: center;
-  padding: 12px 15px;
-  text-decoration: none;
-  color: white;
-  transition: background 0.2s;
-}
-
-.sidebar nav a:hover,
-.sidebar nav a.active {
-  background: #3e7c6e;
-  border-radius: 5px;
-}
-
-.sidebar nav .icon {
-  margin-right: 10px;
-}
-
-/* 🔹 Toggle button always visible */
-.toggle-btn {
-  position: fixed;
-  top: 15px;
-  left: 15px;
-  background: #2f5d50;
-  border: none;
-  color: white;
-  font-size: 20px;
-  cursor: pointer;
-  z-index: 1101; /* above sidebar */
-  padding: 8px 12px;
-  border-radius: 5px;
+.sidebar.open .user-info,
+.sidebar.open .nav-item .label,
+.sidebar.open .logout-btn .label {
+  opacity: 1;
+  transition: opacity 0.3s ease 0.2s;
 }
