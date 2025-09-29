@@ -1,176 +1,136 @@
-/* src/pages/Dashboard.css */
-
+/* Dashboard.css */
 .main-content {
-  padding: 2rem;
-  max-width: 1400px;
-  margin: 0 auto;
-  background: #f8fafc;
+  padding: 20px;
+  background-color: #f8f9fa;
   min-height: 100vh;
 }
 
-/* Top Bar */
+/* ✅ Top Bar with Teal Blue Gradient */
 .topbar {
+  background: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);
+  padding: 20px 30px;
+  border-radius: 12px;
+  margin-bottom: 30px;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.2);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
-  padding: 1.5rem;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border-left: 4px solid #2d6a4f;
+  flex-wrap: wrap;
+  gap: 20px;
 }
 
 .topbar h1 {
-  color: #2c3e50;
-  font-size: 2.2rem;
-  font-weight: 700;
+  color: white;
   margin: 0;
+  font-size: 28px;
+  font-weight: 600;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 10px;
 }
 
+/* ✅ Horizontal Filters */
 .filters {
   display: flex;
-  gap: 0.5rem;
-  background: #f1f5f9;
-  padding: 0.5rem;
-  border-radius: 8px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .filters button {
-  padding: 0.6rem 1.2rem;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: #64748b;
-  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  color: white;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
+  font-size: 14px;
+  min-width: 120px;
+  justify-content: center;
 }
 
 .filters button:hover {
-  background: #e2e8f0;
-  color: #475569;
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
 }
 
 .filters button.active {
-  background: #2d6a4f;
-  color: white;
-  box-shadow: 0 2px 4px rgba(45, 106, 79, 0.3);
+  background: white;
+  color: #0d9488;
+  border-color: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
 }
 
-/* Chart Section */
+.filter-icon {
+  font-size: 16px;
+}
+
+/* ✅ Chart Section */
 .chart-section {
   background: white;
+  padding: 25px;
   border-radius: 12px;
-  padding: 2rem;
-  margin-bottom: 2rem;
+  margin-bottom: 30px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-left: 4px solid #0d9488;
 }
 
 .chart-section h2 {
-  color: #2c3e50;
-  font-size: 1.5rem;
-  margin-bottom: 1.5rem;
+  color: #0d9488;
+  margin-bottom: 20px;
+  font-size: 22px;
+  font-weight: 600;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-weight: 600;
+  gap: 10px;
+}
+
+.chart-icon {
+  font-size: 20px;
 }
 
 .chart-box {
-  background: #f8fafc;
+  background: #f8f9fa;
+  padding: 20px;
   border-radius: 8px;
-  padding: 1rem;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e9ecef;
 }
 
-/* Custom Chart Styles */
-.recharts-cartesian-grid-horizontal line,
-.recharts-cartesian-grid-vertical line {
-  stroke: #e2e8f0;
+/* Chart specific teal colors */
+.chart-box .recharts-line-curve {
+  stroke: #0d9488;
 }
 
-.recharts-x-axis .recharts-cartesian-axis-tick-value {
-  fill: #64748b;
-  font-size: 0.85rem;
+.chart-box .recharts-dot {
+  fill: #14b8a6;
 }
 
-.recharts-y-axis .recharts-cartesian-axis-tick-value {
-  fill: #64748b;
-  font-size: 0.85rem;
-}
-
-.recharts-tooltip-wrapper {
-  border: none !important;
-}
-
-.recharts-default-tooltip {
-  background: white !important;
-  border: 1px solid #e2e8f0 !important;
-  border-radius: 6px !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
-}
-
-/* Cards Grid */
+/* ✅ Cards Grid */
 .cards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
+  gap: 20px;
+  margin-bottom: 30px;
 }
 
 .card {
   background: white;
-  padding: 1.5rem;
+  padding: 25px;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  transition: all 0.3s ease;
-  border-top: 4px solid;
+  text-align: center;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border-left: 4px solid #0d9488;
   position: relative;
   overflow: hidden;
-}
-
-.card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-}
-
-.card:nth-child(1) {
-  border-color: #27ae60;
-}
-
-.card:nth-child(2) {
-  border-color: #3498db;
-}
-
-.card:nth-child(3) {
-  border-color: #e74c3c;
-}
-
-.card:nth-child(4) {
-  border-color: #f39c12;
-}
-
-.card h3 {
-  color: #64748b;
-  font-size: 0.9rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 0.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.card p {
-  color: #2c3e50;
-  font-size: 2.2rem;
-  font-weight: 700;
-  margin: 0;
 }
 
 .card::before {
@@ -179,171 +139,152 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, 
-    rgba(39, 174, 96, 0.8), 
-    rgba(52, 152, 219, 0.8), 
-    rgba(231, 76, 60, 0.8), 
-    rgba(243, 156, 18, 0.8)
-  );
-  opacity: 0;
-  transition: opacity 0.3s ease;
+  height: 3px;
+  background: linear-gradient(90deg, #0d9488, #14b8a6);
 }
 
-.card:hover::before {
-  opacity: 1;
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 16px rgba(13, 148, 136, 0.15);
 }
 
-/* Recent Logs Section */
+.card h3 {
+  color: #495057;
+  margin-bottom: 15px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.card p {
+  color: #0d9488;
+  font-size: 32px;
+  font-weight: 700;
+  margin: 0;
+}
+
+/* ✅ Recent Logs */
 .recent-logs {
   background: white;
+  padding: 25px;
   border-radius: 12px;
-  padding: 2rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-left: 4px solid #0d9488;
 }
 
 .recent-logs h2 {
-  color: #2c3e50;
-  font-size: 1.5rem;
-  margin-bottom: 1.5rem;
+  color: #0d9488;
+  margin-bottom: 20px;
+  font-size: 22px;
+  font-weight: 600;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-weight: 600;
+  gap: 10px;
 }
 
 .recent-logs table {
   width: 100%;
   border-collapse: collapse;
-  background: white;
-}
-
-.recent-logs thead {
-  background: #f8fafc;
 }
 
 .recent-logs th {
-  color: #475569;
-  padding: 1rem;
+  background-color: #f0fdfa;
+  color: #0d9488;
+  padding: 15px;
   text-align: left;
   font-weight: 600;
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-bottom: 2px solid #e2e8f0;
+  border-bottom: 2px solid #e9ecef;
 }
 
 .recent-logs td {
-  padding: 1rem;
-  color: #4a5568;
-  border-bottom: 1px solid #e2e8f0;
-  font-size: 0.95rem;
+  padding: 15px;
+  border-bottom: 1px solid #e9ecef;
+  color: #6c757d;
 }
 
-.recent-logs tbody tr {
-  transition: all 0.3s ease;
+.recent-logs tr:hover {
+  background-color: #f0fdfa;
 }
 
-.recent-logs tbody tr:hover {
-  background: #f8fafc;
-  transform: translateX(4px);
-}
-
+/* ✅ Status Badges */
 .status {
-  display: inline-block;
-  padding: 0.4rem 0.8rem;
+  padding: 6px 12px;
   border-radius: 20px;
-  font-size: 0.8rem;
+  font-size: 12px;
   font-weight: 600;
   text-transform: capitalize;
 }
 
 .status.paid {
-  background: #e8f5e8;
-  color: #27ae60;
+  background-color: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
 }
 
 .status.pending {
-  background: #fff3cd;
-  color: #856404;
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
 }
 
-/* Empty State */
-.empty-state {
+/* ✅ No Data State */
+.no-data {
   text-align: center;
-  padding: 3rem;
-  color: #718096;
+  padding: 40px;
+  color: #6c757d;
 }
 
-.empty-state-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
+.no-data p {
+  margin: 0;
+  font-size: 16px;
 }
 
-.empty-state-text {
-  font-size: 1.1rem;
-  margin-bottom: 0.5rem;
+/* ✅ Custom chart colors for teal theme */
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: #f1f5f9;
 }
 
-.empty-state-subtext {
-  color: #a0aec0;
-  font-size: 0.9rem;
+.recharts-tooltip-wrapper {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-/* Loading States */
-.loading-spinner {
-  display: inline-block;
-  width: 20px;
-  height: 20px;
-  border: 3px solid #f3f3f3;
-  border-top: 3px solid #2d6a4f;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-right: 0.5rem;
+.recharts-default-tooltip {
+  background: white !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 8px !important;
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+.recharts-tooltip-item {
+  color: #0d9488 !important;
 }
 
-.loading-text {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-  color: #64748b;
-}
-
-/* Responsive Design */
-@media (max-width: 1024px) {
-  .main-content {
-    padding: 1.5rem;
-  }
-  
-  .cards-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
+/* ✅ Responsive Design */
 @media (max-width: 768px) {
   .main-content {
-    padding: 1rem;
+    padding: 15px;
   }
   
   .topbar {
+    padding: 15px 20px;
     flex-direction: column;
-    gap: 1rem;
-    text-align: center;
+    align-items: stretch;
+    background: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);
   }
   
   .topbar h1 {
-    font-size: 1.8rem;
+    font-size: 24px;
+    text-align: center;
   }
   
   .filters {
-    width: 100%;
     justify-content: center;
+  }
+  
+  .filters button {
+    min-width: 100px;
+    padding: 10px 15px;
+    font-size: 13px;
   }
   
   .cards-grid {
@@ -352,7 +293,7 @@
   
   .chart-section,
   .recent-logs {
-    padding: 1.5rem;
+    padding: 20px;
   }
   
   .recent-logs table {
@@ -362,107 +303,34 @@
 }
 
 @media (max-width: 480px) {
-  .topbar h1 {
-    font-size: 1.5rem;
-  }
-  
   .filters {
     flex-direction: column;
-    gap: 0.5rem;
+    width: 100%;
   }
   
   .filters button {
     width: 100%;
   }
   
+  .card {
+    padding: 20px;
+  }
+  
   .card p {
-    font-size: 1.8rem;
-  }
-  
-  .recent-logs {
-    padding: 1rem;
-  }
-  
-  .recent-logs th,
-  .recent-logs td {
-    padding: 0.75rem 0.5rem;
-    font-size: 0.85rem;
+    font-size: 28px;
   }
 }
 
-/* Animation for cards */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* ✅ Loading States */
+.loading {
+  opacity: 0.7;
+  pointer-events: none;
 }
 
-.card {
-  animation: fadeInUp 0.5s ease;
-}
-
-.card:nth-child(1) { animation-delay: 0.1s; }
-.card:nth-child(2) { animation-delay: 0.2s; }
-.card:nth-child(3) { animation-delay: 0.3s; }
-.card:nth-child(4) { animation-delay: 0.4s; }
-
-/* Custom scrollbar for table */
-.recent-logs table::-webkit-scrollbar {
-  height: 6px;
-}
-
-.recent-logs table::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 3px;
-}
-
-.recent-logs table::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 3px;
-}
-
-.recent-logs table::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
-}
-
-/* Filter transition */
-.filters button {
+/* ✅ Animation for smooth transitions */
+.filters button,
+.card,
+.chart-section,
+.recent-logs {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Chart responsive adjustments */
-@media (max-width: 480px) {
-  .chart-box {
-    padding: 0.5rem;
-  }
-  
-  .recharts-responsive-container {
-    font-size: 0.8rem;
-  }
-}
-
-/* Print Styles */
-@media print {
-  .main-content {
-    padding: 0;
-    background: white;
-  }
-  
-  .topbar,
-  .chart-section,
-  .cards-grid,
-  .recent-logs {
-    box-shadow: none;
-    border: 1px solid #ddd;
-    margin-bottom: 1rem;
-  }
-  
-  .filters {
-    display: none;
-  }
 }

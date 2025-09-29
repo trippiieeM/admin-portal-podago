@@ -110,7 +110,7 @@ const Login = ({ onLogin }) => {
   return (
     <div className="login-container">
       <form className="login-form" onSubmit={handleSubmit}>
-        <h2>{isCreatingAccount ? 'Create Admin Account' : 'Farm Management Login'}</h2>
+        <h2>{isCreatingAccount ? 'Create Admin Account' : 'PODAGO LOGIN'}</h2>
         
         {error && <div className="error-message">{error}</div>}
         
