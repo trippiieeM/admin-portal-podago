@@ -8,6 +8,7 @@ import Farmers from "./pages/Farmers";
 import MilkLogs from "./pages/MilkLogs";
 import Payments from "./pages/Payments";
 import Analytics from "./pages/Analytics";
+import Feeds from "./pages/Feeds"; // Add this import
 import Login from "./components/Login";
 import "./App.css";
 
@@ -97,6 +98,12 @@ function App() {
               <Route path="/analytics" element={
                 <ProtectedRoute>
                   <Analytics />
+                </ProtectedRoute>
+              } />
+              {/* Add Feed Route */}
+              <Route path="/feeds" element={
+                <ProtectedRoute>
+                  <Feeds />
                 </ProtectedRoute>
               } />
               <Route path="/login" element={<Navigate to="/" />} />

@@ -8,6 +8,9 @@ import {
   orderBy,
   updateDoc,
   doc,
+  onSnapshot,
+  addDoc,
+  writeBatch
 } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { format } from "date-fns";
@@ -15,11 +18,14 @@ import "./Payments.css";
 
 function Payments() {
   const [logs, setLogs] = useState([]);
+  const [feedDeductions, setFeedDeductions] = useState([]);
   const [farmers, setFarmers] = useState([]);
   const [selectedFarmer, setSelectedFarmer] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [month, setMonth] = useState("");
   const [year, setYear] = useState("");
+  const [paymentType, setPaymentType] = useState("all");
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const pricePerLiter = 45;
 
@@ -35,8 +41,8 @@ function Payments() {
     fetchFarmers();
   }, []);
 
-  // 🔹 Fetch payments with filters
-  const fetchPayments = async () => {
+  // 🔹 Fetch milk logs
+  const fetchMilkPayments = async () => {
     let q = query(collection(db, "milk_logs"), orderBy("date", "desc"));
 
     if (selectedFarmer) {
@@ -57,33 +63,368 @@ function Payments() {
     }
 
     const snapshot = await getDocs(q);
-    setLogs(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    const milkLogs = snapshot.docs.map((doc) => ({ 
+      id: doc.id, 
+      ...doc.data(),
+      type: 'milk_payment',
+      amount: (doc.data().quantity ?? 0) * pricePerLiter
+    }));
+    
+    setLogs(milkLogs);
+  };
+
+  // 🔹 Fetch feed deductions
+  const fetchFeedDeductions = () => {
+    let q = query(collection(db, "payments"), 
+      where("type", "==", "feed_deduction"),
+      orderBy("createdAt", "desc")
+    );
+
+    if (selectedFarmer) {
+      q = query(q, where("farmerId", "==", selectedFarmer));
+    }
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const deductions = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        type: 'feed_deduction'
+      }));
+      setFeedDeductions(deductions);
+    });
+
+    return unsubscribe;
   };
 
   useEffect(() => {
-    fetchPayments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetchMilkPayments();
+    const unsubscribe = fetchFeedDeductions();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, [selectedFarmer, statusFilter, month, year]);
 
-  // 🔹 Update Payment Status
-  const updateStatus = async (logId, newStatus) => {
-    const ref = doc(db, "milk_logs", logId);
-    await updateDoc(ref, { status: newStatus });
-    fetchPayments(); // refresh
+  // 🔹 PROCESS PAYMENT: Mark milk as paid and clear balance
+  const processPayment = async (farmerId) => {
+    setIsProcessing(true);
+    try {
+      const farmer = farmers.find(f => f.id === farmerId);
+      if (!farmer) {
+        alert('Farmer not found');
+        return;
+      }
+
+      // Get farmer's pending milk logs
+      const pendingMilkQuery = query(
+        collection(db, "milk_logs"),
+        where("farmerId", "==", farmerId),
+        where("status", "==", "pending")
+      );
+      
+      const pendingMilkSnapshot = await getDocs(pendingMilkQuery);
+      const pendingMilkLogs = pendingMilkSnapshot.docs;
+
+      if (pendingMilkLogs.length === 0) {
+        alert(`No pending milk payments found for ${farmer.name}`);
+        return;
+      }
+
+      // Calculate total pending amount
+      const totalPendingAmount = pendingMilkLogs.reduce((sum, doc) => {
+        const data = doc.data();
+        return sum + ((data.quantity || 0) * pricePerLiter);
+      }, 0);
+
+      // Get farmer's feed deductions
+      const farmerDeductions = feedDeductions.filter(ded => ded.farmerId === farmerId);
+      const totalFeedDeductions = farmerDeductions.reduce((sum, ded) => 
+        sum + Math.abs(ded.amount || 0), 0
+      );
+
+      // Calculate net amount to pay
+      const netAmount = totalPendingAmount - totalFeedDeductions;
+
+      if (netAmount <= 0) {
+        alert(`No payment needed. Feed deductions (KES ${totalFeedDeductions}) exceed pending milk (KES ${totalPendingAmount})`);
+        return;
+      }
+
+      // Use batch write for atomic operations
+      const batch = writeBatch(db);
+
+      // 1. Mark all pending milk logs as paid
+      pendingMilkLogs.forEach(milkDoc => {
+        const milkRef = doc(db, "milk_logs", milkDoc.id);
+        batch.update(milkRef, {
+          status: "paid",
+          paidDate: new Date(),
+          paidAmount: netAmount > 0 ? netAmount : 0
+        });
+      });
+
+      // 2. Create payment record
+      const paymentRef = doc(collection(db, "payments"));
+      batch.set(paymentRef, {
+        farmerId: farmerId,
+        type: 'milk_payment',
+        amount: netAmount,
+        description: `Milk payment for ${pendingMilkLogs.length} deliveries`,
+        status: 'completed',
+        pendingMilkAmount: totalPendingAmount,
+        feedDeductions: totalFeedDeductions,
+        netAmount: netAmount,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+
+      // 3. Mark feed deductions as processed
+      farmerDeductions.forEach(deduction => {
+        const deductionRef = doc(db, "payments", deduction.id);
+        batch.update(deductionRef, {
+          status: 'processed',
+          processedDate: new Date(),
+          appliedToPayment: paymentRef.id
+        });
+      });
+
+      // Commit the batch
+      await batch.commit();
+
+      alert(`✅ Payment processed successfully!\n\n` +
+            `📊 Pending Milk: KES ${totalPendingAmount}\n` +
+            `🌾 Feed Deductions: KES ${totalFeedDeductions}\n` +
+            `💰 Net Paid: KES ${netAmount}\n\n` +
+            `${pendingMilkLogs.length} milk deliveries marked as paid.`);
+
+      // Refresh data
+      fetchMilkPayments();
+
+    } catch (error) {
+      console.error("Error processing payment:", error);
+      alert('❌ Error processing payment: ' + error.message);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  // 🔹 Totals
-  const totalPaid = logs
-    .filter((log) => log.status === "paid")
-    .reduce((sum, log) => sum + (log.quantity ?? 0) * pricePerLiter, 0);
+  // 🔹 AUTO-DEDUCT: Apply feed deductions to pending milk
+  const autoDeductFeedCosts = async () => {
+    setIsProcessing(true);
+    try {
+      let totalDeducted = 0;
+      let farmersProcessed = 0;
 
-  const totalPending = logs
-    .filter((log) => log.status === "pending")
-    .reduce((sum, log) => sum + (log.quantity ?? 0) * pricePerLiter, 0);
+      // Process each farmer
+      for (const farmer of farmers) {
+        const farmerDeductions = feedDeductions.filter(ded => 
+          ded.farmerId === farmer.id && ded.status !== 'processed'
+        );
+        
+        if (farmerDeductions.length === 0) continue;
+
+        const totalDeductions = farmerDeductions.reduce((sum, ded) => 
+          sum + Math.abs(ded.amount || 0), 0
+        );
+
+        // Get pending milk logs for this farmer
+        const pendingMilkQuery = query(
+          collection(db, "milk_logs"),
+          where("farmerId", "==", farmer.id),
+          where("status", "==", "pending")
+        );
+        
+        const pendingMilkSnapshot = await getDocs(pendingMilkQuery);
+        const pendingMilkLogs = pendingMilkSnapshot.docs;
+
+        if (pendingMilkLogs.length === 0) continue;
+
+        const totalPending = pendingMilkLogs.reduce((sum, doc) => {
+          const data = doc.data();
+          return sum + ((data.quantity || 0) * pricePerLiter);
+        }, 0);
+
+        // Calculate deduction amount (can't deduct more than pending)
+        const deductionAmount = Math.min(totalDeductions, totalPending);
+        
+        if (deductionAmount > 0) {
+          const batch = writeBatch(db);
+
+          // Create deduction application record
+          const deductionAppRef = doc(collection(db, "deduction_applications"));
+          batch.set(deductionAppRef, {
+            farmerId: farmer.id,
+            amount: -deductionAmount,
+            description: `Feed cost deduction applied to pending milk`,
+            originalPending: totalPending,
+            deductedAmount: deductionAmount,
+            remainingPending: totalPending - deductionAmount,
+            createdAt: new Date()
+          });
+
+          // Mark deductions as processed
+          farmerDeductions.forEach(deduction => {
+            const deductionRef = doc(db, "payments", deduction.id);
+            batch.update(deductionRef, {
+              status: 'processed',
+              processedDate: new Date()
+            });
+          });
+
+          await batch.commit();
+
+          totalDeducted += deductionAmount;
+          farmersProcessed++;
+          console.log(`✅ Deducted KES ${deductionAmount} from ${farmer.name}`);
+        }
+      }
+
+      if (totalDeducted > 0) {
+        alert(`✅ Successfully applied KES ${totalDeducted} in feed deductions across ${farmersProcessed} farmers`);
+      } else {
+        alert('ℹ️ No deductions were applied (no matching pending payments)');
+      }
+
+      fetchMilkPayments();
+
+    } catch (error) {
+      console.error("Error auto-deducting feed costs:", error);
+      alert('❌ Error auto-deducting feed costs: ' + error.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // 🔹 MARK INDIVIDUAL MILK AS PAID (for single payments)
+  const markAsPaid = async (milkLogId) => {
+    try {
+      const milkLog = logs.find(log => log.id === milkLogId);
+      if (!milkLog) return;
+
+      await updateDoc(doc(db, "milk_logs", milkLogId), {
+        status: "paid",
+        paidDate: new Date()
+      });
+
+      alert(`✅ Milk delivery marked as paid: KES ${milkLog.amount}`);
+      fetchMilkPayments();
+
+    } catch (error) {
+      console.error("Error marking as paid:", error);
+      alert('❌ Error marking as paid: ' + error.message);
+    }
+  };
+
+  // 🔹 CALCULATE FARMER BALANCE
+  const calculateFarmerBalance = (farmerId) => {
+    const farmerMilkPending = logs.filter(log => 
+      log.farmerId === farmerId && log.status === "pending"
+    );
+    const farmerMilkPaid = logs.filter(log => 
+      log.farmerId === farmerId && log.status === "paid"
+    );
+    const farmerDeductions = feedDeductions.filter(ded => 
+      ded.farmerId === farmerId && ded.status !== 'processed'
+    );
+
+    const totalPending = farmerMilkPending.reduce((sum, log) => sum + (log.amount || 0), 0);
+    const totalPaid = farmerMilkPaid.reduce((sum, log) => sum + (log.amount || 0), 0);
+    const totalDeductions = farmerDeductions.reduce((sum, ded) => sum + Math.abs(ded.amount || 0), 0);
+
+    const netPayable = totalPending - totalDeductions;
+
+    return {
+      totalPending,
+      totalPaid,
+      totalDeductions,
+      netPayable,
+      hasPending: totalPending > 0,
+      hasDeductions: totalDeductions > 0
+    };
+  };
+
+  // 🔹 CALCULATE TOTALS
+  const calculateTotals = () => {
+    const milkPaid = logs.filter(log => log.status === "paid");
+    const milkPending = logs.filter(log => log.status === "pending");
+    const activeDeductions = feedDeductions.filter(ded => ded.status !== 'processed');
+
+    const totalMilkPaid = milkPaid.reduce((sum, log) => sum + (log.amount || 0), 0);
+    const totalMilkPending = milkPending.reduce((sum, log) => sum + (log.amount || 0), 0);
+    const totalFeedDeductions = activeDeductions.reduce((sum, deduction) => 
+      sum + Math.abs(deduction.amount || 0), 0
+    );
+
+    const totalMilkValue = totalMilkPaid + totalMilkPending;
+    const netPayable = totalMilkPending - totalFeedDeductions;
+
+    return {
+      totalMilkPaid,
+      totalMilkPending,
+      totalFeedDeductions,
+      totalMilkValue,
+      netPayable
+    };
+  };
+
+  const {
+    totalMilkPaid,
+    totalMilkPending,
+    totalFeedDeductions,
+    totalMilkValue,
+    netPayable
+  } = calculateTotals();
+
+  const filteredTransactions = [
+    ...logs.map(log => ({ ...log, transactionType: 'milk' })),
+    ...feedDeductions.filter(ded => ded.status !== 'processed')
+      .map(deduction => ({ ...deduction, transactionType: 'feed' }))
+  ].filter(transaction => {
+    if (paymentType === "milk") return transaction.type === 'milk_payment';
+    if (paymentType === "feed") return transaction.type === 'feed_deduction';
+    return true;
+  });
 
   return (
     <div className="payments">
-      <h1>💰 Payments</h1>
+      <h1>💰 Payments & Deductions</h1>
+
+      {/* 🔹 Payment Processing Section */}
+      <div className="payment-processing-section">
+        <h3>💳 Payment Processing</h3>
+        
+        <div className="processing-buttons">
+          <button 
+            className="btn-auto-deduct"
+            onClick={autoDeductFeedCosts}
+            disabled={feedDeductions.length === 0 || isProcessing}
+          >
+            {isProcessing ? '⏳ Processing...' : '🔄 Apply Feed Deductions to Pending Milk'}
+          </button>
+
+          {selectedFarmer && (() => {
+            const balance = calculateFarmerBalance(selectedFarmer);
+            return (
+              <button 
+                className="btn-process-payment"
+                onClick={() => processPayment(selectedFarmer)}
+                disabled={!balance.hasPending || isProcessing}
+              >
+                {isProcessing ? '⏳ Processing...' : `💰 Pay ${farmers.find(f => f.id === selectedFarmer)?.name} - KES ${balance.netPayable}`}
+              </button>
+            );
+          })()}
+        </div>
+
+        <div className="processing-info">
+          <p>
+            <strong>Feed Deductions:</strong> Apply feed costs to pending milk payments
+          </p>
+          <p>
+            <strong>Process Payment:</strong> Pay farmer after deductions (select farmer first)
+          </p>
+        </div>
+      </div>
 
       {/* 🔹 Filters */}
       <div className="filters">
@@ -108,6 +449,15 @@ function Payments() {
           <option value="pending">Pending</option>
         </select>
 
+        <select
+          value={paymentType}
+          onChange={(e) => setPaymentType(e.target.value)}
+        >
+          <option value="all">All Transactions</option>
+          <option value="milk">Milk Payments Only</option>
+          <option value="feed">Feed Deductions Only</option>
+        </select>
+
         <input
           type="number"
           placeholder="Year (e.g. 2025)"
@@ -124,67 +474,139 @@ function Payments() {
           ))}
         </select>
 
-        <button onClick={fetchPayments}>Apply</button>
+        <button onClick={fetchMilkPayments}>Apply</button>
       </div>
 
-      {/* 🔹 Totals */}
-      <div className="totals">
-        <div className="total-card paid">
-          ✅ Total Paid: <strong>KES {totalPaid}</strong>
+      {/* 🔹 Financial Summary */}
+      <div className="financial-summary">
+        <div className="summary-card total-milk">
+          <h3>🥛 Total Milk Value</h3>
+          <div className="amount positive">KES {totalMilkValue}</div>
+          <div className="subtext">
+            Paid: KES {totalMilkPaid} | Pending: KES {totalMilkPending}
+          </div>
         </div>
-        <div className="total-card pending">
-          ⏳ Pending Payments: <strong>KES {totalPending}</strong>
+
+        <div className="summary-card feed-deductions">
+          <h3>🌾 Feed Deductions</h3>
+          <div className="amount negative">- KES {totalFeedDeductions}</div>
+          <div className="subtext">
+            To be deducted from pending milk
+          </div>
+        </div>
+
+        <div className="summary-card net-payable">
+          <h3>💰 Net Payable</h3>
+          <div className={`amount ${netPayable >= 0 ? 'positive' : 'negative'}`}>
+            KES {netPayable}
+          </div>
+          <div className="subtext">
+            Pending milk after deductions
+          </div>
         </div>
       </div>
 
-      {/* 🔹 Table */}
+      {/* 🔹 Transactions Table */}
       <div className="payments-table-container">
         <table className="payments-table">
           <thead>
             <tr>
+              <th>Type</th>
               <th>Farmer</th>
-              <th>Quantity (L)</th>
-              <th>Amount (KES)</th>
+              <th>Description</th>
+              <th>Amount</th>
               <th>Status</th>
               <th>Date</th>
               <th>Action</th>
             </tr>
           </thead>
           <tbody>
-            {logs.map((log) => (
-              <tr key={log.id}>
-                <td className="farmer-name">{log.farmerName || log.farmerId}</td>
-                <td>{log.quantity}</td>
-                <td className="amount-highlight">{(log.quantity ?? 0) * pricePerLiter}</td>
-                <td className={log.status === "paid" ? "status-paid" : "status-pending"}>
-                  {log.status}
+            {filteredTransactions.map((transaction) => (
+              <tr key={transaction.id} className={transaction.type === 'feed_deduction' ? 'deduction-row' : ''}>
+                <td>
+                  {transaction.type === 'feed_deduction' ? (
+                    <span className="transaction-type feed">🌾 Feed</span>
+                  ) : (
+                    <span className="transaction-type milk">🥛 Milk</span>
+                  )}
+                </td>
+                <td className="farmer-name">
+                  {farmers.find(f => f.id === transaction.farmerId)?.name || transaction.farmerId}
+                </td>
+                <td className="description">
+                  {transaction.type === 'feed_deduction' 
+                    ? transaction.description || `Feed Purchase`
+                    : `Milk Delivery: ${transaction.quantity}L`}
+                </td>
+                <td className={`amount-cell ${transaction.type === 'feed_deduction' ? 'deduction-amount' : 'payment-amount'}`}>
+                  {transaction.type === 'feed_deduction' 
+                    ? `- KES ${Math.abs(transaction.amount || 0)}`
+                    : `KES ${transaction.amount}`}
+                </td>
+                <td className={`status-${transaction.status}`}>
+                  {transaction.status || 'pending'}
                 </td>
                 <td>
-                  {log.date?.toDate
-                    ? format(log.date.toDate(), "MMM dd, yyyy HH:mm")
+                  {transaction.date?.toDate
+                    ? format(transaction.date.toDate(), "MMM dd, yyyy")
+                    : transaction.createdAt?.toDate
+                    ? format(transaction.createdAt.toDate(), "MMM dd, yyyy")
                     : "N/A"}
                 </td>
                 <td>
-                  {log.status === "pending" ? (
+                  {transaction.type === 'milk_payment' && transaction.status === "pending" ? (
                     <button
-                      onClick={() => updateStatus(log.id, "paid")}
+                      onClick={() => markAsPaid(transaction.id)}
                       className="mark-paid"
                     >
-                      Mark as Paid
+                      Mark Paid
                     </button>
                   ) : (
-                    <button
-                      onClick={() => updateStatus(log.id, "pending")}
-                      className="mark-pending"
-                    >
-                      Mark as Pending
-                    </button>
+                    <span className="no-action">—</span>
                   )}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+
+        {filteredTransactions.length === 0 && (
+          <div className="no-transactions">
+            <p>No transactions found for the selected filters.</p>
+          </div>
+        )}
+      </div>
+
+      {/* 🔹 Farmer-wise Breakdown */}
+      <div className="farmer-breakdown">
+        <h3>📊 Farmer Balances</h3>
+        <div className="breakdown-cards">
+          {farmers.filter(f => !selectedFarmer || f.id === selectedFarmer).map(farmer => {
+            const balance = calculateFarmerBalance(farmer.id);
+            
+            return (
+              <div key={farmer.id} className="farmer-card">
+                <h4>{farmer.name || farmer.id}</h4>
+                <div className="farmer-stats">
+                  <div>Pending Milk: <span className="pending">KES {balance.totalPending}</span></div>
+                  <div>Feed Deductions: <span className="negative">- KES {balance.totalDeductions}</span></div>
+                  <div className="net-amount">
+                    Net Payable: <span className={balance.netPayable >= 0 ? 'positive' : 'negative'}>KES {balance.netPayable}</span>
+                  </div>
+                </div>
+                <div className="farmer-actions">
+                  <button 
+                    onClick={() => processPayment(farmer.id)}
+                    disabled={!balance.hasPending || isProcessing}
+                    className="btn-pay-farmer"
+                  >
+                    {isProcessing ? 'Processing...' : `Pay KES ${balance.netPayable}`}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

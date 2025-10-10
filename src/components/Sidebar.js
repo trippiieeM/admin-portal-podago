@@ -14,6 +14,7 @@ import {
   FaChartLine
 } from "react-icons/fa";
 import "./Sidebar.css";
+import { FaBowlFood } from "react-icons/fa6";
 
 function Sidebar({ isOpen, setIsOpen, onLogout, user }) {
   const location = useLocation();
@@ -24,6 +25,7 @@ function Sidebar({ isOpen, setIsOpen, onLogout, user }) {
     { path: "/milk-logs", name: "Milk Logs", icon: <FaTint /> },
     { path: "/payments", name: "Payments", icon: <FaMoneyBillWave /> },
     { path: "/analytics", name: "Analytics", icon: <FaChartLine /> },
+    { path: "/feeds", name: "feeds", icon: <FaBowlFood /> },
   ];
 
   return (
