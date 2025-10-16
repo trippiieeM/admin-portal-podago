@@ -42,7 +42,26 @@ const Feeds = () => {
     description: ''
   });
 
-  const feedTypes = ['Dairy Meal', 'Calf Feed', 'Mineral Supplement', 'Protein Concentrate'];
+  // Complete feed types list that matches Flutter app
+  const feedTypes = [
+    'Dairy Meal',
+    'Pollard (Wheat Pollard)',
+    'Maize Germ', 
+    'Maize Bran',
+    'Wheat Bran',
+    'Cottonseed Cake',
+    'Sunflower Cake',
+    'Fish Meal',
+    'Soybean Meal',
+    'Molasses',
+    'Mineral Supplement',
+    'Salt',
+    'Lucerne Meal',
+    'Urea-Molasses Block',
+    'Yeast/Probiotic Additives',
+    'Protein Concentrate'
+  ];
+
   const units = ['kg', 'bags', 'liters'];
 
   // Fetch farmers data
@@ -143,16 +162,16 @@ const Feeds = () => {
   // Helper function to find matching feed in inventory
   const findMatchingFeed = (request) => {
     return feeds.find(feed => {
-      // Try to match by feed type name first
-      if (request.feedTypeName && feed.name?.toLowerCase().includes(request.feedTypeName.toLowerCase())) {
+      // Try to match by feed type name first (from Flutter app)
+      if (request.feedTypeName && feed.type?.toLowerCase() === request.feedTypeName.toLowerCase()) {
         return true;
       }
-      // Then try by feed type
+      // Then try by feed type (from Flutter app)
       if (request.feedType && feed.type?.toLowerCase().includes(request.feedType.toLowerCase())) {
         return true;
       }
       // Finally try by name
-      if (feed.name?.toLowerCase().includes(request.feedType?.toLowerCase())) {
+      if (feed.name?.toLowerCase().includes(request.feedTypeName?.toLowerCase())) {
         return true;
       }
       return false;
@@ -167,11 +186,24 @@ const Feeds = () => {
       return (request.quantity || 0) * feed.pricePerUnit;
     }
     
+    // Default prices for all feed types
     const defaultPrices = {
       'dairy_meal': 45, 'Dairy Meal': 45,
-      'calf_feed': 60, 'Calf Feed': 60,
-      'mineral_supplement': 80, 'Mineral Supplement': 80,
-      'protein_concentrate': 70, 'Protein Concentrate': 70
+      'pollard_wheat_pollard': 35, 'Pollard (Wheat Pollard)': 35,
+      'maize_germ': 40, 'Maize Germ': 40,
+      'maize_bran': 30, 'Maize Bran': 30,
+      'wheat_bran': 32, 'Wheat Bran': 32,
+      'cottonseed_cake': 55, 'Cottonseed Cake': 55,
+      'sunflower_cake': 50, 'Sunflower Cake': 50,
+      'fish_meal': 80, 'Fish Meal': 80,
+      'soybean_meal': 65, 'Soybean Meal': 65,
+      'molasses': 25, 'Molasses': 25,
+      'mineral_supplement': 70, 'Mineral Supplement': 70,
+      'salt': 15, 'Salt': 15,
+      'lucerne_meal': 45, 'Lucerne Meal': 45,
+      'urea-molasses_block': 30, 'Urea-Molasses Block': 30,
+      'yeast_probiotic_additives': 90, 'Yeast/Probiotic Additives': 90,
+      'protein_concentrate': 75, 'Protein Concentrate': 75
     };
     
     const pricePerKg = defaultPrices[request.feedType] || defaultPrices[request.feedTypeName] || 50;
@@ -244,10 +276,19 @@ const Feeds = () => {
         pricePerUnit: parseFloat(feedForm.pricePerUnit) || 0,
         minStockLevel: parseFloat(feedForm.minStockLevel) || 0,
         reservedQuantity: 0, // Initialize reserved quantity
+        availableQuantity: parseFloat(feedForm.quantity) || 0, // Initialize available quantity
         updatedAt: new Date()
       };
 
       if (selectedFeed) {
+        // When updating, preserve the existing available quantity logic
+        const existingFeed = feeds.find(f => f.id === selectedFeed.id);
+        if (existingFeed) {
+          // Keep the existing available quantity calculation
+          const currentReserved = existingFeed.reservedQuantity || 0;
+          feedData.availableQuantity = (parseFloat(feedForm.quantity) || 0) - currentReserved;
+        }
+        
         await updateDoc(doc(db, 'feeds', selectedFeed.id), feedData);
         showMessage('Feed updated successfully');
       } else {
@@ -278,128 +319,160 @@ const Feeds = () => {
     }
   };
 
-  // Update inventory when feed is delivered
+  // Enhanced inventory update with better error handling and logging
   const updateInventoryOnDelivery = async (request) => {
     try {
       const matchingFeed = findMatchingFeed(request);
       
-      if (matchingFeed) {
-        const currentQuantity = matchingFeed.quantity || 0;
-        const requestedQuantity = request.quantity || 0;
-        const currentReserved = matchingFeed.reservedQuantity || 0;
-        
-        // Check if there's enough stock
-        if (currentQuantity < requestedQuantity) {
-          throw new Error(`Insufficient stock! Only ${currentQuantity} ${matchingFeed.unit} available, but ${requestedQuantity} ${matchingFeed.unit} requested.`);
-        }
-        
-        // Calculate new quantities
-        const newQuantity = currentQuantity - requestedQuantity;
-        const newReserved = Math.max(0, currentReserved - requestedQuantity);
-        
-        // Update the feed inventory
-        await updateDoc(doc(db, 'feeds', matchingFeed.id), {
-          quantity: newQuantity,
-          reservedQuantity: newReserved,
-          lastUpdated: new Date(),
-          lastDelivery: {
-            requestId: request.id,
-            farmerId: request.farmerId,
-            quantity: requestedQuantity,
-            date: new Date()
-          }
-        });
-        
-        console.log(`Inventory updated: ${matchingFeed.name} reduced by ${requestedQuantity} ${matchingFeed.unit}`);
-      } else {
-        console.warn(`No matching feed found in inventory for: ${request.feedTypeName || request.feedType}`);
+      if (!matchingFeed) {
+        throw new Error(`No matching feed found in inventory for: ${request.feedTypeName || request.feedType}`);
       }
+
+      const currentQuantity = matchingFeed.quantity || 0;
+      const requestedQuantity = request.quantity || 0;
+      const currentReserved = matchingFeed.reservedQuantity || 0;
+      
+      // Check if there's enough stock
+      if (currentQuantity < requestedQuantity) {
+        throw new Error(`Insufficient stock! Only ${currentQuantity} ${matchingFeed.unit} available, but ${requestedQuantity} ${matchingFeed.unit} requested.`);
+      }
+      
+      // Calculate new quantities
+      const newQuantity = currentQuantity - requestedQuantity;
+      const newReserved = Math.max(0, currentReserved - requestedQuantity);
+      const newAvailable = newQuantity - newReserved;
+      
+      // Update the feed inventory in Firebase
+      await updateDoc(doc(db, 'feeds', matchingFeed.id), {
+        quantity: newQuantity,
+        reservedQuantity: newReserved,
+        availableQuantity: newAvailable,
+        lastUpdated: new Date(),
+        lastDelivery: {
+          requestId: request.id,
+          farmerId: request.farmerId,
+          quantity: requestedQuantity,
+          date: new Date()
+        }
+      });
+      
+      console.log(`✅ Inventory updated: ${matchingFeed.name} reduced by ${requestedQuantity} ${matchingFeed.unit}`);
+      console.log(`   New quantity: ${newQuantity} ${matchingFeed.unit}`);
+      console.log(`   New reserved: ${newReserved} ${matchingFeed.unit}`);
+      console.log(`   New available: ${newAvailable} ${matchingFeed.unit}`);
+      
+      return true;
     } catch (error) {
-      console.error('Error updating inventory on delivery:', error);
+      console.error('❌ Error updating inventory on delivery:', error);
       throw error;
     }
   };
 
-  // Restore inventory when delivery is reverted
+  // Enhanced inventory restoration
   const restoreInventoryOnRevert = async (request) => {
     try {
       const matchingFeed = findMatchingFeed(request);
       
-      if (matchingFeed) {
-        const currentQuantity = matchingFeed.quantity || 0;
-        const requestedQuantity = request.quantity || 0;
-        const newQuantity = currentQuantity + requestedQuantity;
-        
-        await updateDoc(doc(db, 'feeds', matchingFeed.id), {
-          quantity: newQuantity,
-          lastUpdated: new Date(),
-          lastRestoration: {
-            requestId: request.id,
-            farmerId: request.farmerId,
-            quantity: requestedQuantity,
-            date: new Date()
-          }
-        });
-        
-        console.log(`Inventory restored: ${matchingFeed.name} increased by ${requestedQuantity} ${matchingFeed.unit}`);
+      if (!matchingFeed) {
+        console.warn(`No matching feed found for restoration: ${request.feedTypeName || request.feedType}`);
+        return;
       }
+
+      const currentQuantity = matchingFeed.quantity || 0;
+      const requestedQuantity = request.quantity || 0;
+      const currentReserved = matchingFeed.reservedQuantity || 0;
+      const newQuantity = currentQuantity + requestedQuantity;
+      const newAvailable = newQuantity - currentReserved;
+      
+      await updateDoc(doc(db, 'feeds', matchingFeed.id), {
+        quantity: newQuantity,
+        availableQuantity: newAvailable,
+        lastUpdated: new Date(),
+        lastRestoration: {
+          requestId: request.id,
+          farmerId: request.farmerId,
+          quantity: requestedQuantity,
+          date: new Date()
+        }
+      });
+      
+      console.log(`🔄 Inventory restored: ${matchingFeed.name} increased by ${requestedQuantity} ${matchingFeed.unit}`);
+      console.log(`   New quantity: ${newQuantity} ${matchingFeed.unit}`);
+      console.log(`   New available: ${newAvailable} ${matchingFeed.unit}`);
+      
     } catch (error) {
-      console.error('Error restoring inventory:', error);
+      console.error('❌ Error restoring inventory:', error);
       throw error;
     }
   };
 
-  // Reserve feed when request is approved
+  // Enhanced feed reservation
   const reserveFeedInInventory = async (request) => {
     try {
       const matchingFeed = findMatchingFeed(request);
       
-      if (matchingFeed) {
-        const currentQuantity = matchingFeed.quantity || 0;
-        const requestedQuantity = request.quantity || 0;
-        const currentReserved = matchingFeed.reservedQuantity || 0;
-        
-        // Check if there's enough stock to reserve
-        const availableQuantity = currentQuantity - currentReserved;
-        if (availableQuantity < requestedQuantity) {
-          throw new Error(`Cannot approve request: Insufficient available stock! Only ${availableQuantity} ${matchingFeed.unit} available, but ${requestedQuantity} ${matchingFeed.unit} requested.`);
-        }
-        
-        // Update the feed to show reserved quantity
-        const newReserved = currentReserved + requestedQuantity;
-        
-        await updateDoc(doc(db, 'feeds', matchingFeed.id), {
-          reservedQuantity: newReserved,
-          lastUpdated: new Date()
-        });
-        
-        console.log(`Feed reserved: ${requestedQuantity} ${matchingFeed.unit} of ${matchingFeed.name}`);
+      if (!matchingFeed) {
+        throw new Error(`No matching feed found for reservation: ${request.feedTypeName || request.feedType}`);
       }
+
+      const currentQuantity = matchingFeed.quantity || 0;
+      const requestedQuantity = request.quantity || 0;
+      const currentReserved = matchingFeed.reservedQuantity || 0;
+      const currentAvailable = currentQuantity - currentReserved;
+      
+      // Check if there's enough stock to reserve
+      if (currentAvailable < requestedQuantity) {
+        throw new Error(`Cannot approve request: Insufficient available stock! Only ${currentAvailable} ${matchingFeed.unit} available, but ${requestedQuantity} ${matchingFeed.unit} requested.`);
+      }
+      
+      // Update the feed to show reserved quantity
+      const newReserved = currentReserved + requestedQuantity;
+      const newAvailable = currentQuantity - newReserved;
+      
+      await updateDoc(doc(db, 'feeds', matchingFeed.id), {
+        reservedQuantity: newReserved,
+        availableQuantity: newAvailable,
+        lastUpdated: new Date()
+      });
+      
+      console.log(`🔒 Feed reserved: ${requestedQuantity} ${matchingFeed.unit} of ${matchingFeed.name}`);
+      console.log(`   New reserved: ${newReserved} ${matchingFeed.unit}`);
+      console.log(`   New available: ${newAvailable} ${matchingFeed.unit}`);
+      
     } catch (error) {
-      console.error('Error reserving feed:', error);
+      console.error('❌ Error reserving feed:', error);
       throw error;
     }
   };
 
-  // Release reserved feed when request is rejected
+  // Enhanced reserved feed release
   const releaseReservedFeed = async (request) => {
     try {
       const matchingFeed = findMatchingFeed(request);
       
-      if (matchingFeed) {
-        const currentReserved = matchingFeed.reservedQuantity || 0;
-        const requestedQuantity = request.quantity || 0;
-        const newReserved = Math.max(0, currentReserved - requestedQuantity);
-        
-        await updateDoc(doc(db, 'feeds', matchingFeed.id), {
-          reservedQuantity: newReserved,
-          lastUpdated: new Date()
-        });
-        
-        console.log(`Reservation released: ${requestedQuantity} ${matchingFeed.unit} of ${matchingFeed.name}`);
+      if (!matchingFeed) {
+        console.warn(`No matching feed found for releasing reservation: ${request.feedTypeName || request.feedType}`);
+        return;
       }
+
+      const currentQuantity = matchingFeed.quantity || 0;
+      const currentReserved = matchingFeed.reservedQuantity || 0;
+      const requestedQuantity = request.quantity || 0;
+      const newReserved = Math.max(0, currentReserved - requestedQuantity);
+      const newAvailable = currentQuantity - newReserved;
+      
+      await updateDoc(doc(db, 'feeds', matchingFeed.id), {
+        reservedQuantity: newReserved,
+        availableQuantity: newAvailable,
+        lastUpdated: new Date()
+      });
+      
+      console.log(`🔓 Reservation released: ${requestedQuantity} ${matchingFeed.unit} of ${matchingFeed.name}`);
+      console.log(`   New reserved: ${newReserved} ${matchingFeed.unit}`);
+      console.log(`   New available: ${newAvailable} ${matchingFeed.unit}`);
+      
     } catch (error) {
-      console.error('Error releasing reserved feed:', error);
+      console.error('❌ Error releasing reserved feed:', error);
       throw error;
     }
   };
@@ -428,10 +501,10 @@ const Feeds = () => {
           updatedAt: new Date()
         });
         
-        console.log(`Deduction of KES ${cost} created for farmer ${request.farmerId}`);
+        console.log(`💰 Deduction of KES ${cost} created for farmer ${request.farmerId}`);
       }
     } catch (error) {
-      console.error('Error creating automatic deduction:', error);
+      console.error('❌ Error creating automatic deduction:', error);
       throw error;
     }
   };
@@ -449,53 +522,77 @@ const Feeds = () => {
       const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
       await Promise.all(deletePromises);
       
-      console.log(`Deductions removed for request ${feedRequestId}`);
+      console.log(`🗑️ Deductions removed for request ${feedRequestId}`);
     } catch (error) {
-      console.error('Error removing deduction:', error);
+      console.error('❌ Error removing deduction:', error);
       throw error;
     }
   };
 
+  // Enhanced request status update with comprehensive inventory management
   const updateRequestStatus = async (requestId, newStatus) => {
     try {
       const requestRef = doc(db, 'feed_requests', requestId);
       const request = feedRequests.find(r => r.id === requestId);
       
-      if (request) {
-        const feedCost = calculateFeedCost(request);
-        
-        await updateDoc(requestRef, {
-          status: newStatus,
-          cost: feedCost,
-          updatedAt: new Date()
-        });
+      if (!request) {
+        throw new Error('Request not found');
+      }
 
-        // Handle inventory updates based on status change
-        if (newStatus === 'delivered') {
-          await updateInventoryOnDelivery(request);
-          await createAutomaticDeduction(request, feedCost);
-        }
-        
-        // Handle inventory restoration when reverting from delivered
-        if (newStatus === 'pending' && request.status === 'delivered') {
-          await restoreInventoryOnRevert(request);
-          await removeDeduction(request.id);
-        }
+      const feedCost = calculateFeedCost(request);
+      const previousStatus = request.status;
+      
+      console.log(`🔄 Updating request ${requestId} from ${previousStatus} to ${newStatus}`);
+      
+      // Update request status first
+      await updateDoc(requestRef, {
+        status: newStatus,
+        cost: feedCost,
+        updatedAt: new Date()
+      });
 
-        // Handle approval - reserve the feed
-        if (newStatus === 'approved') {
-          await reserveFeedInInventory(request);
-        }
-
-        // Handle rejection - release reserved feed
-        if (newStatus === 'rejected' && request.status === 'approved') {
-          await releaseReservedFeed(request);
-        }
+      // Handle status transitions and inventory updates
+      switch (newStatus) {
+        case 'approved':
+          if (previousStatus !== 'approved') {
+            await reserveFeedInInventory(request);
+          }
+          break;
+          
+        case 'delivered':
+          if (previousStatus !== 'delivered') {
+            await updateInventoryOnDelivery(request);
+            await createAutomaticDeduction(request, feedCost);
+          }
+          break;
+          
+        case 'rejected':
+          if (previousStatus === 'approved') {
+            await releaseReservedFeed(request);
+          }
+          break;
+          
+        case 'pending':
+          // When reverting from delivered to pending
+          if (previousStatus === 'delivered') {
+            await restoreInventoryOnRevert(request);
+            await removeDeduction(request.id);
+          }
+          // When reverting from approved to pending
+          if (previousStatus === 'approved') {
+            await releaseReservedFeed(request);
+          }
+          break;
+          
+        default:
+          break;
       }
 
       showMessage(`Request ${newStatus} successfully`);
+      console.log(`✅ Request ${requestId} successfully updated to ${newStatus}`);
+      
     } catch (error) {
-      console.error('Error updating request:', error);
+      console.error('❌ Error updating request:', error);
       showMessage(`Error: ${error.message}`, 'error');
     }
   };
@@ -602,36 +699,35 @@ const Feeds = () => {
       {/* Feed Inventory Tab */}
       {activeTab === 0 && (
         <div className="tab-content">
+          <div className="inventory-summary">
+            <h3>📊 Real-time Inventory Status</h3>
+            <p>Available quantities automatically update when feed is delivered to farmers</p>
+          </div>
+
           <div className="stats-grid">
             <div className="stat-card">
               <h3>Total Feed Types</h3>
               <div className="stat-number">{feeds.length}</div>
             </div>
             <div className="stat-card">
-              <h3>In Stock</h3>
-              <div className="stat-number in-stock">
-                {feeds.filter(f => {
-                  const status = getStockStatus(f);
-                  return status.available > (f.minStockLevel || 0);
-                }).length}
+              <h3>Total Stock</h3>
+              <div className="stat-number">
+                {feeds.reduce((total, feed) => total + (feed.quantity || 0), 0)} kg
               </div>
             </div>
             <div className="stat-card">
-              <h3>Low Stock</h3>
-              <div className="stat-number low-stock">
-                {feeds.filter(f => {
-                  const status = getStockStatus(f);
-                  return status.available > 0 && status.available <= (f.minStockLevel || 0);
-                }).length}
+              <h3>Reserved</h3>
+              <div className="stat-number reserved">
+                {feeds.reduce((total, feed) => total + (feed.reservedQuantity || 0), 0)} kg
               </div>
             </div>
             <div className="stat-card">
-              <h3>Out of Stock</h3>
-              <div className="stat-number out-of-stock">
-                {feeds.filter(f => {
-                  const status = getStockStatus(f);
-                  return status.available <= 0;
-                }).length}
+              <h3>Available</h3>
+              <div className="stat-number available">
+                {feeds.reduce((total, feed) => {
+                  const status = getStockStatus(feed);
+                  return total + status.available;
+                }, 0)} kg
               </div>
             </div>
           </div>
@@ -642,7 +738,9 @@ const Feeds = () => {
                 <tr>
                   <th>Feed Name</th>
                   <th>Type</th>
-                  <th>Quantity</th>
+                  <th>Total Quantity</th>
+                  <th>Reserved</th>
+                  <th>Available</th>
                   <th>Price/Unit</th>
                   <th>Stock Status</th>
                   <th>Min Stock</th>
@@ -662,21 +760,26 @@ const Feeds = () => {
                       <td>
                         <div className="quantity-display">
                           <div className="total-quantity">{feed.quantity} {feed.unit}</div>
-                          {stockStatus.reserved > 0 && (
-                            <div className="reserved-quantity">
-                              (Reserved: {stockStatus.reserved} {feed.unit})
-                            </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="reserved-quantity">
+                          {stockStatus.reserved > 0 ? (
+                            <span className="reserved-badge">{stockStatus.reserved} {feed.unit}</span>
+                          ) : (
+                            <span className="no-reserved">-</span>
                           )}
-                          <div className={`available-quantity ${stockStatus.available <= 0 ? 'out-of-stock-warning' : stockStatus.available <= (feed.minStockLevel || 0) ? 'low-stock-warning' : ''}`}>
-                            Available: {stockStatus.available} {feed.unit}
-                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div className={`available-quantity ${stockStatus.class}`}>
+                          {stockStatus.available} {feed.unit}
                         </div>
                       </td>
                       <td>{formatCurrency(feed.pricePerUnit)}</td>
                       <td>
-                        <span className={`status-badge ${stockStatus.class} ${stockStatus.reserved > 0 ? 'with-reserved' : ''}`}>
+                        <span className={`status-badge ${stockStatus.class}`}>
                           {stockStatus.status}
-                          {stockStatus.reserved > 0 && ` (${stockStatus.reserved} reserved)`}
                         </span>
                       </td>
                       <td>{feed.minStockLevel} {feed.unit}</td>
@@ -750,7 +853,7 @@ const Feeds = () => {
                   <th>Total Cost</th>
                   <th>Request Date</th>
                   <th>Status</th>
-                  <th>Notes</th>
+                  <th>Inventory Impact</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -759,12 +862,52 @@ const Feeds = () => {
                   const requestStatus = getRequestStatus(request);
                   const farmerInfo = getFarmerInfo(request.farmerId);
                   const feedCost = calculateFeedCost(request);
+                  const matchingFeed = findMatchingFeed(request);
                   
-                  const feed = findMatchingFeed(request);
-                  const unitPrice = feed?.pricePerUnit || 
+                  const unitPrice = matchingFeed?.pricePerUnit || 
                     (request.feedType === 'dairy_meal' ? 45 : 
-                     request.feedType === 'calf_feed' ? 60 : 
-                     request.feedType === 'mineral_supplement' ? 80 : 50);
+                     request.feedType === 'pollard_wheat_pollard' ? 35 :
+                     request.feedType === 'maize_germ' ? 40 :
+                     request.feedType === 'maize_bran' ? 30 :
+                     request.feedType === 'wheat_bran' ? 32 :
+                     request.feedType === 'cottonseed_cake' ? 55 :
+                     request.feedType === 'sunflower_cake' ? 50 :
+                     request.feedType === 'fish_meal' ? 80 :
+                     request.feedType === 'soybean_meal' ? 65 :
+                     request.feedType === 'molasses' ? 25 :
+                     request.feedType === 'mineral_supplement' ? 70 :
+                     request.feedType === 'salt' ? 15 :
+                     request.feedType === 'lucerne_meal' ? 45 :
+                     request.feedType === 'urea-molasses_block' ? 30 :
+                     request.feedType === 'yeast_probiotic_additives' ? 90 :
+                     request.feedType === 'protein_concentrate' ? 75 : 50);
+
+                  const getInventoryImpact = () => {
+                    if (!matchingFeed) return { text: 'No matching feed', class: 'no-match' };
+                    
+                    const stockStatus = getStockStatus(matchingFeed);
+                    const requestedQty = request.quantity || 0;
+                    
+                    if (request.status === 'delivered') {
+                      return { text: '✅ Inventory updated', class: 'inventory-updated' };
+                    }
+                    
+                    if (request.status === 'approved') {
+                      return { text: `🔒 ${requestedQty} ${matchingFeed.unit} reserved`, class: 'reserved' };
+                    }
+                    
+                    if (request.status === 'pending') {
+                      const canFulfill = stockStatus.available >= requestedQty;
+                      return { 
+                        text: canFulfill ? `✅ Can fulfill` : `⚠️ Low stock`, 
+                        class: canFulfill ? 'can-fulfill' : 'low-stock-warning' 
+                      };
+                    }
+                    
+                    return { text: 'No impact', class: 'no-impact' };
+                  };
+
+                  const inventoryImpact = getInventoryImpact();
 
                   return (
                     <tr key={request.id}>
@@ -801,12 +944,16 @@ const Feeds = () => {
                         </span>
                       </td>
                       <td>
-                        {request.notes ? (
-                          <div className="request-notes">
-                            {request.notes}
+                        <span className={`inventory-impact ${inventoryImpact.class}`}>
+                          {inventoryImpact.text}
+                        </span>
+                        {matchingFeed && (
+                          <div className="feed-stock-info">
+                            Stock: {matchingFeed.quantity} {matchingFeed.unit}
+                            {matchingFeed.reservedQuantity > 0 && 
+                              ` (${matchingFeed.reservedQuantity} reserved)`
+                            }
                           </div>
-                        ) : (
-                          <span className="no-notes">No notes</span>
                         )}
                       </td>
                       <td>
