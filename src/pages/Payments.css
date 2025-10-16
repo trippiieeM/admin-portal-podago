@@ -557,3 +557,128 @@
   background: #6c757d;
   cursor: not-allowed;
 }
+/* Add to your Payments.css file */
+
+/* Price Configuration Styles */
+.price-configuration {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.price-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.price-header h3 {
+  margin: 0;
+  color: #495057;
+  font-size: 1.1rem;
+}
+
+.btn-toggle-price {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.btn-toggle-price:hover {
+  background: #5a6268;
+}
+
+.price-input-section {
+  background: white;
+  padding: 1rem;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+}
+
+.price-input-group {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.price-input-group label {
+  font-weight: 600;
+  color: #495057;
+  min-width: 150px;
+}
+
+.price-input-group input {
+  padding: 0.5rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  width: 120px;
+  font-size: 1rem;
+}
+
+.price-info {
+  color: #6c757d;
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+.price-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-apply-price {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-apply-price:hover {
+  background: #218838;
+}
+
+.btn-reset-price {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-reset-price:hover {
+  background: #5a6268;
+}
+
+.price-subtext {
+  font-size: 0.8rem;
+  color: #6c757d;
+  margin-top: 0.25rem;
+}
+
+/* Update existing styles to accommodate price info */
+.processing-info p strong {
+  color: #495057;
+}
+
+.financial-summary .summary-card .price-subtext {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+.farmer-stats .price-info {
+  font-size: 0.8rem;
+  color: #6c757d;
+  margin-top: 0.25rem;
+}

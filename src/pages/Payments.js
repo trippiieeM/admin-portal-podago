@@ -10,7 +10,9 @@ import {
   doc,
   onSnapshot,
   addDoc,
-  writeBatch
+  writeBatch,
+  setDoc,
+  getDoc
 } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { format } from "date-fns";
@@ -26,8 +28,63 @@ function Payments() {
   const [year, setYear] = useState("");
   const [paymentType, setPaymentType] = useState("all");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [pricePerLiter, setPricePerLiter] = useState(45);
+  const [showPriceInput, setShowPriceInput] = useState(false);
 
-  const pricePerLiter = 45;
+  // 🔹 Load milk price from system configuration
+  useEffect(() => {
+    const loadMilkPrice = async () => {
+      try {
+        const priceDoc = await getDoc(doc(db, "system_config", "milk_price"));
+        if (priceDoc.exists()) {
+          const data = priceDoc.data();
+          setPricePerLiter(data.pricePerLiter || 45);
+          console.log(`✅ Loaded milk price from config: KES ${data.pricePerLiter}`);
+        }
+      } catch (error) {
+        console.error("Error loading milk price:", error);
+      }
+    };
+    loadMilkPrice();
+  }, []);
+
+  // 🔹 Save milk price to system configuration
+  const saveMilkPriceToConfig = async (price) => {
+    try {
+      await setDoc(doc(db, "system_config", "milk_price"), {
+        pricePerLiter: price,
+        updatedAt: new Date(),
+        updatedBy: "admin"
+      });
+      console.log(`✅ Milk price saved to system config: KES ${price}`);
+    } catch (error) {
+      console.error("❌ Error saving milk price:", error);
+      throw error;
+    }
+  };
+
+  // 🔹 Update milk price and save to config
+  const updateMilkPrice = async (newPrice) => {
+    if (newPrice <= 0) {
+      alert('Price must be greater than 0');
+      return;
+    }
+    
+    try {
+      setPricePerLiter(newPrice);
+      await saveMilkPriceToConfig(newPrice);
+      alert(`✅ Milk price updated to KES ${newPrice} per liter`);
+      fetchMilkPayments(); // Refresh data with new price
+    } catch (error) {
+      alert('❌ Failed to save milk price: ' + error.message);
+      // Revert to previous price on error
+      const priceDoc = await getDoc(doc(db, "system_config", "milk_price"));
+      if (priceDoc.exists()) {
+        const data = priceDoc.data();
+        setPricePerLiter(data.pricePerLiter || 45);
+      }
+    }
+  };
 
   // 🔹 Fetch farmers
   useEffect(() => {
@@ -103,7 +160,7 @@ function Payments() {
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [selectedFarmer, statusFilter, month, year]);
+  }, [selectedFarmer, statusFilter, month, year, pricePerLiter]);
 
   // 🔹 PROCESS PAYMENT: Mark milk as paid and clear balance
   const processPayment = async (farmerId) => {
@@ -159,7 +216,8 @@ function Payments() {
         batch.update(milkRef, {
           status: "paid",
           paidDate: new Date(),
-          paidAmount: netAmount > 0 ? netAmount : 0
+          paidAmount: netAmount > 0 ? netAmount : 0,
+          pricePerLiter: pricePerLiter // ✅ Store price with each milk log
         });
       });
 
@@ -169,11 +227,12 @@ function Payments() {
         farmerId: farmerId,
         type: 'milk_payment',
         amount: netAmount,
-        description: `Milk payment for ${pendingMilkLogs.length} deliveries`,
+        description: `Milk payment for ${pendingMilkLogs.length} deliveries @ KES ${pricePerLiter}/L`,
         status: 'completed',
         pendingMilkAmount: totalPendingAmount,
         feedDeductions: totalFeedDeductions,
         netAmount: netAmount,
+        pricePerLiter: pricePerLiter, // ✅ Store price with payment
         createdAt: new Date(),
         updatedAt: new Date()
       });
@@ -194,7 +253,8 @@ function Payments() {
       alert(`✅ Payment processed successfully!\n\n` +
             `📊 Pending Milk: KES ${totalPendingAmount}\n` +
             `🌾 Feed Deductions: KES ${totalFeedDeductions}\n` +
-            `💰 Net Paid: KES ${netAmount}\n\n` +
+            `💰 Net Paid: KES ${netAmount}\n` +
+            `📈 Price per Liter: KES ${pricePerLiter}\n\n` +
             `${pendingMilkLogs.length} milk deliveries marked as paid.`);
 
       // Refresh data
@@ -255,10 +315,11 @@ function Payments() {
           batch.set(deductionAppRef, {
             farmerId: farmer.id,
             amount: -deductionAmount,
-            description: `Feed cost deduction applied to pending milk`,
+            description: `Feed cost deduction applied to pending milk @ KES ${pricePerLiter}/L`,
             originalPending: totalPending,
             deductedAmount: deductionAmount,
             remainingPending: totalPending - deductionAmount,
+            pricePerLiter: pricePerLiter,
             createdAt: new Date()
           });
 
@@ -303,10 +364,11 @@ function Payments() {
 
       await updateDoc(doc(db, "milk_logs", milkLogId), {
         status: "paid",
-        paidDate: new Date()
+        paidDate: new Date(),
+        pricePerLiter: pricePerLiter
       });
 
-      alert(`✅ Milk delivery marked as paid: KES ${milkLog.amount}`);
+      alert(`✅ Milk delivery marked as paid: ${milkLog.quantity}L @ KES ${pricePerLiter}/L = KES ${milkLog.amount}`);
       fetchMilkPayments();
 
     } catch (error) {
@@ -389,6 +451,54 @@ function Payments() {
     <div className="payments">
       <h1>💰 Payments & Deductions</h1>
 
+      {/* 🔹 Milk Price Configuration */}
+      <div className="price-configuration">
+        <div className="price-header">
+          <h3>📈 Milk Price Configuration</h3>
+          <button 
+            className="btn-toggle-price"
+            onClick={() => setShowPriceInput(!showPriceInput)}
+          >
+            {showPriceInput ? '▼ Hide' : '⚙️ Configure Price'}
+          </button>
+        </div>
+        
+        {showPriceInput && (
+          <div className="price-input-section">
+            <div className="price-input-group">
+              <label htmlFor="pricePerLiter">Price per Liter (KES):</label>
+              <input
+                id="pricePerLiter"
+                type="number"
+                value={pricePerLiter}
+                onChange={(e) => setPricePerLiter(Number(e.target.value))}
+                min="1"
+                step="0.5"
+                placeholder="Enter price per liter"
+              />
+              <span className="price-info">Current: KES {pricePerLiter} per liter</span>
+            </div>
+            <div className="price-actions">
+              <button 
+                className="btn-apply-price"
+                onClick={() => updateMilkPrice(pricePerLiter)}
+              >
+                Save Price
+              </button>
+              <button 
+                className="btn-reset-price"
+                onClick={() => updateMilkPrice(45)}
+              >
+                Reset to Default
+              </button>
+            </div>
+            <div className="price-save-info">
+              <small>Price will be saved to system configuration and used across all calculations</small>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* 🔹 Payment Processing Section */}
       <div className="payment-processing-section">
         <h3>💳 Payment Processing</h3>
@@ -417,6 +527,9 @@ function Payments() {
         </div>
 
         <div className="processing-info">
+          <p>
+            <strong>Current Price:</strong> KES {pricePerLiter} per liter
+          </p>
           <p>
             <strong>Feed Deductions:</strong> Apply feed costs to pending milk payments
           </p>
@@ -485,6 +598,7 @@ function Payments() {
           <div className="subtext">
             Paid: KES {totalMilkPaid} | Pending: KES {totalMilkPending}
           </div>
+          <div className="price-subtext">@ KES {pricePerLiter}/L</div>
         </div>
 
         <div className="summary-card feed-deductions">
@@ -503,6 +617,7 @@ function Payments() {
           <div className="subtext">
             Pending milk after deductions
           </div>
+          <div className="price-subtext">@ KES {pricePerLiter}/L</div>
         </div>
       </div>
 
@@ -536,7 +651,7 @@ function Payments() {
                 <td className="description">
                   {transaction.type === 'feed_deduction' 
                     ? transaction.description || `Feed Purchase`
-                    : `Milk Delivery: ${transaction.quantity}L`}
+                    : `Milk Delivery: ${transaction.quantity}L @ KES ${pricePerLiter}/L`}
                 </td>
                 <td className={`amount-cell ${transaction.type === 'feed_deduction' ? 'deduction-amount' : 'payment-amount'}`}>
                   {transaction.type === 'feed_deduction' 
@@ -593,6 +708,7 @@ function Payments() {
                   <div className="net-amount">
                     Net Payable: <span className={balance.netPayable >= 0 ? 'positive' : 'negative'}>KES {balance.netPayable}</span>
                   </div>
+                  <div className="price-info">Price: KES {pricePerLiter}/L</div>
                 </div>
                 <div className="farmer-actions">
                   <button 
